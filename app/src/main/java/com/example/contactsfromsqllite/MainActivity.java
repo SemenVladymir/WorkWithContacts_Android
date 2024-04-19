@@ -12,9 +12,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -36,11 +38,12 @@ public class MainActivity extends AppCompatActivity {
     Button button;
     EditText name;
     EditText phone;
-    ArrayList<String> contacts = new ArrayList<>();
+    ArrayList<Contact> list = new ArrayList<>();
 
     private static final int REQUEST_CODE_READ_CONTACTS=1;
     private static boolean READ_CONTACTS_GRANTED =false;
 
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -67,55 +70,60 @@ public class MainActivity extends AppCompatActivity {
             button.setEnabled(READ_CONTACTS_GRANTED);
         }
          //set OnClickListener() to the button
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                if (!name.getText().toString().isEmpty() && !phone.getText().toString().isEmpty())
-                    AddContact(v);
-
-            }
+        button.setOnClickListener(v -> {
+            if (!name.getText().toString().isEmpty() && !phone.getText().toString().isEmpty())
+                AddContact(v);
         });
+
     }
 
     public void getContacts() {
-
-            // create cursor and query the data
             cursor = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, null, null, null);
-            startManagingCursor(cursor);
-
-            // data is a array of String type which is
-            // used to store Number ,Names and id.
-            String[] data = {ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone._ID};
-            int[] to = {android.R.id.text1, android.R.id.text2};
-
-            // creation of adapter using SimpleCursorAdapter class
-            SimpleCursorAdapter adapter = new SimpleCursorAdapter(this, android.R.layout.simple_list_item_2, cursor, data, to);
-
-            // Calling setAdaptor() method to set created adapter
+            list.clear();
+            if(cursor!=null){
+                while (cursor.moveToNext()) {
+                    @SuppressLint("Range") String id = cursor.getString(
+                            cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone._ID));
+                    @SuppressLint("Range") String dbname = cursor.getString(
+                            cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME));
+                    @SuppressLint("Range") String dbphone = cursor.getString(
+                            cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+                    list.add(new Contact(id, dbname, dbphone));
+                }
+                cursor.close();
+            }
+            ContactAdapter adapter = new ContactAdapter(this, R.layout.activity_contacts, list);
             listView.setAdapter(adapter);
             listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         }
 
     public void AddContact(View v) {
-        ContentValues contactValues = new ContentValues();
-        contactValues.put(ContactsContract.RawContacts.ACCOUNT_NAME, name.getText().toString());
-        contactValues.put(ContactsContract.RawContacts.ACCOUNT_TYPE, name.getText().toString());
-        Uri newUri = getContentResolver().insert(ContactsContract.RawContacts.CONTENT_URI, contactValues);
+        String newName = name.getText().toString();
+        String newPhone = phone.getText().toString();
+
+        Uri newUri = getContentResolver().insert(ContactsContract.RawContacts.CONTENT_URI, new ContentValues());
         long rawContactsId = ContentUris.parseId(newUri);
-        contactValues.clear();
-        contactValues.put(ContactsContract.Data.RAW_CONTACT_ID, rawContactsId);
+        ContentValues values = new ContentValues();
+        /* Связываем наш аккаунт с данными */
+        values.put(ContactsContract.RawContacts.Data.RAW_CONTACT_ID, rawContactsId);
+        /* Устанавливаем MIMETYPE для поля данных */
+        values.put(ContactsContract.RawContacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+        /* Имя для нашего аккаунта */
+        values.put(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, newName);
+        getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+        values.clear();
+        values.put(ContactsContract.Data.RAW_CONTACT_ID, rawContactsId);
         /* Тип данных – номер телефона */
-        contactValues.put(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
+        values.put(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
         /* Номер телефона */
-        contactValues.put(ContactsContract.CommonDataKinds.Phone.NUMBER, phone.getText().toString());
+        values.put(ContactsContract.CommonDataKinds.Phone.NUMBER, newPhone);
         /* Тип – мобильный */
-        contactValues.put(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE);
-        contactValues.put(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
-        contactValues.put(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name.getText().toString());
-        getContentResolver().insert(ContactsContract.Data.CONTENT_URI, contactValues);
-        Toast.makeText(getApplicationContext(), name.getText().toString() + " добавлен в список контактов", Toast.LENGTH_LONG).show();
+        values.put(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE);
+        getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+        Toast.makeText(getApplicationContext(), newName + " added to the contacts list", Toast.LENGTH_LONG).show();
+        name.setText("");
+        phone.setText("");
         getContacts();
     }
 
-    }
+}

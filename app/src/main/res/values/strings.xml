@@ -4,4 +4,6 @@
     <string name="contact_name">Contact name</string>
     <string name="list_of_contacts">List of contacts</string>
     <string name="contact_phone_number">Contact phone number</string>
+    <string name="phone_number">Phone_number</string>
+    <string name="name_of_contact">Name_of_contact</string>
 </resources>
